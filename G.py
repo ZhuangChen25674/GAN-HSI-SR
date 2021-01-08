@@ -23,3 +23,4 @@ VAL_DATA_PATH = DATA_PATH.joinpath('val.npy')
 
 TEST_DATA_PATH = DATA_PATH.joinpath('test.npy')
 
+OUT_DIR = Path('/home/hefeng/data1/HSI-SR/GAN-HSI-SR/data')

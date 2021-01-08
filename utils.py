@@ -16,7 +16,8 @@
 from pathlib import Path
 from PIL import Image
 import numpy as np
-
+import torch.nn as nn
+import torch
 
 def save_cave_data():
     # 生成{train val test}.npy 文件
@@ -45,4 +46,21 @@ def save_cave_data():
     np.save('val.npy',data[20:26])
     np.save('test.npy',data[26:])
 
-save_cave_data()
+def PSNR_GPU(img1, img2):
+    return 10. * torch.log10(1. / torch.mean((img1 - img2) ** 2))
+
+def SAM_GPU(im_true, im_fake):
+    C = im_true.size()[1]
+    H = im_true.size()[2]
+    W = im_true.size()[3]
+    esp = 1e-12
+    Itrue = im_true.clone()#.resize_(C, H*W)
+    Ifake = im_fake.clone()#.resize_(C, H*W)
+    nom = torch.mul(Itrue, Ifake).sum(dim=0)#.resize_(H*W)
+    denominator = Itrue.norm(p=2, dim=0, keepdim=True).clamp(min=esp) * \
+                  Ifake.norm(p=2, dim=0, keepdim=True).clamp(min=esp)
+    denominator = denominator.squeeze()
+    sam = torch.div(nom, denominator).acos()
+    sam[sam != sam] = 0
+    sam_sum = torch.sum(sam) / (H * W) / np.pi * 180
+    return sam_sum / 8

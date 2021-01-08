@@ -21,10 +21,11 @@ from torch.nn.functional import interpolate
 
 class LoadData(Dataset):
 
-    def __init__(self,path.s=4):
+    def __init__(self,path,s=4):
         # num 31 512 512 
         self.data = np.load(path)
         self.data = torch.from_numpy(self.data)
+        self.data /= 2**16 - 1
 
         #TODO: 先边缘裁剪 以获取HR
         shape = self.data.shape
@@ -34,9 +35,9 @@ class LoadData(Dataset):
         #32*3 31 144 144
         self.HR = torch.zeros((shape[0]*3,31,144,144))
 
-        self.HR[:32] = self.data[:,:,:144,:144]
-        self.HR[32:32*2] = self.data[:,:,144:144*2,144:144*2]
-        self.HR[32*2:32*3] = self.data[:,:,144*2:144*3,144*2:144*3]
+        self.HR[:shape[0]] = self.data[:,:,:144,:144]
+        self.HR[shape[0]:shape[0]*2] = self.data[:,:,144:144*2,144:144*2]
+        self.HR[shape[0]*2:shape[0]*3] = self.data[:,:,144*2:144*3,144*2:144*3]
 
         # 得到LR图像 32*3 31 36 36 
         self.LR = self.down_sample(self.HR)

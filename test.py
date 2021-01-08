@@ -1,27 +1,45 @@
-from pathlib import Path
-import random
-from PIL import Image
-import numpy as np
+# import torch
+# from net import Generator
 
-random.seed(0)
-path = Path('/home/hefeng/data1/HSI-SR/DataSet/CAVE')
-all = []
+# data = torch.rand((4,1,31,36,36))
 
-for p in path.iterdir():
-    a='/home/hefeng/data1/HSI-SR/DataSet/CAVE/watercolors_ms/watercolors_ms/watercolors_ms_25.png'
-    img = Image.open(a)
-    data = np.array(img)
-    # print(len(data.shape))
-    print(data[:,:,0]-data[:,:,1])
-    break
-    # for p1 in p.iterdir():
-    #     a = [i for i in p1.iterdir() if i.match('*.png')]
+# g = Generator(4)
 
-    #     break
-    # break
+# res = g(data)
 
-# img = Image.open(all[1])
+# print(res.shape)
 
-# data = np.array(img)
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
 
-# print(data)
+class TVLoss(nn.Module):
+    def __init__(self,TVLoss_weight=1):
+        super(TVLoss,self).__init__()
+        self.TVLoss_weight = TVLoss_weight
+
+    def forward(self,x):
+        batch_size = x.size()[0]
+        h_x = x.size()[2]
+        w_x = x.size()[3]
+        count_h = self._tensor_size(x[:,:,1:,:])
+        count_w = self._tensor_size(x[:,:,:,1:])
+        h_tv = torch.pow((x[:,:,1:,:]-x[:,:,:h_x-1,:]),2).sum()
+        w_tv = torch.pow((x[:,:,:,1:]-x[:,:,:,:w_x-1]),2).sum()
+        return self.TVLoss_weight*2*(h_tv/count_h+w_tv/count_w)/batch_size
+
+    def _tensor_size(self,t):
+        return t.size()[1]*t.size()[2]*t.size()[3]
+
+def main():
+    # x = Variable(torch.FloatTensor([[[1,2],[2,3]],[[1,2],[2,3]]]).view(1,2,2,2), requires_grad=True)
+    # x = Variable(torch.FloatTensor([[[3,1],[4,3]],[[3,1],[4,3]]]).view(1,2,2,2), requires_grad=True)
+    # x = Variable(torch.FloatTensor([[[1,1,1], [2,2,2],[3,3,3]],[[1,1,1], [2,2,2],[3,3,3]]]).view(1, 2, 3, 3), requires_grad=True)
+    x = Variable(torch.FloatTensor([[[1, 2, 3], [2, 3, 4], [3, 4, 5]], [[1, 2, 3], [2, 3, 4], [3, 4, 5]]]).view(1, 2, 3, 3),requires_grad=True)
+    addition = TVLoss()
+    z = addition(x)
+    print(z.item())
+    z.backward()
+    
+if __name__ == '__main__':
+    main()

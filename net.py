@@ -22,6 +22,7 @@ class Attention(nn.Module):
 
     # band attention 复现
     def __init__(self,bs, c, l=31, h=36, w=36):
+        super(Attention,self).__init__()
         # SET Padding=0 Stride=1
         # TODO: INPUT_SHAPE (B_S, 32 , 31 , H, W)
         self.shape = [bs,c,l,h,w]
@@ -47,7 +48,7 @@ class Attention(nn.Module):
             nn.PReLU(),
 
         #   TODO: 反卷积 增大缩小的特征图
-            nn.ConvTranspose1d(32,32,2,4,1)
+            nn.ConvTranspose1d(32,32,5,4,1),
             nn.Sigmoid()
         )
 
@@ -58,10 +59,10 @@ class Attention(nn.Module):
         x1 = self.conv_1(x) #bs 32 31 h w
         x2 = self.avg_poll(x1) #bs 32 31 1 1
         
-        x2_1 = x2.rehape((self.shape[0], self.shape[1], self.shape[2])) # bs 32 31
+        x2_1 = x2.resize(self.shape[0], self.shape[1], self.shape[2]) # bs 32 31
 
         x3 = self.conv_2(x2_1) # bs 32 31
-        x3_1 = x3.reshape((self.shape[0], self.shape[1], self.shape[2], 1, 1)) # bs 32 31 1 1
+        x3_1 = x3.resize(self.shape[0], self.shape[1], self.shape[2], 1, 1) # bs 32 31 1 1
         
         x4 = x1 * x3_1
 
@@ -75,8 +76,8 @@ class Generator(nn.Module):
 
     # 生成器网络复现
 
-    def __init__(self,bs, c, l=31, h=36, w=36):
-
+    def __init__(self,bs, c=1, l=31, h=36, w=36):
+        super(Generator,self).__init__()
         #TODO: input_shape (bs, 1, 31, h, w)
         self.shape = [bs,c,l,h,w]
 
@@ -85,7 +86,7 @@ class Generator(nn.Module):
             nn.PReLU()
         )
 
-        self.attn_1 = Attention(bs, c, l, h, w)
+        self.attn_1 = Attention(bs, 32, l, h, w)
 
         self.conv_2 = nn.Sequential(
             nn.Conv3d(32, 32, KERNEL_SIZE, 1, (2,1,1)),
@@ -93,13 +94,13 @@ class Generator(nn.Module):
         )
         # TODO: 反卷积大小计算!
         self.conv_3 = nn.Sequential(
-            nn.ConvTranspose3d(32,32,(3,6,6),(1,2,2),(1,3,3))
+            nn.ConvTranspose3d(32,32,(3,6,6),(1,2,2),(1,2,2)),
             nn.PReLU(),
 
-            nn.ConvTranspose3d(32,32,(3,6,6),(1,2,2),(1,3,3))
-            nn.Tanh()
+            nn.ConvTranspose3d(32,32,(3,6,6),(1,2,2),(1,2,2)),
+            nn.Tanh(),
 
-            nn.Conv3d(32,1,KERNEL_SIZE,1,(2,1,1))
+            nn.Conv3d(32,1,KERNEL_SIZE,1,(2,1,1)),
         )
 
     def forward(self,x):
@@ -120,8 +121,8 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
 
     #对抗器复现
-    def __init__(self,,bs, c, l=31, h=144, w=144):
-        
+    def __init__(self,bs, c=1, l=31, h=144, w=144):
+        super(Discriminator,self).__init__()
         #TODO:通过单边填充 实现恰好减半
         self.conv = nn.Sequential(
             #1
@@ -149,10 +150,10 @@ class Discriminator(nn.Module):
             #6
             nn.Conv3d(128,128,KERNEL_SIZE,1,(2,1,1)),
             nn.BatchNorm3d(128),
-            nn.PReLU()
+            nn.PReLU(),
             #7  TODO: 4倍缩小 l h w = 8 36 36
             #  --> bs 128 1 1 1
-            nn.AvgPool3d((8,36,36),1),
+            nn.AvgPool3d((7,36,36),1),
             nn.Conv3d(128,256,(1,1,1),1),
             nn.PReLU(),
 
@@ -168,3 +169,73 @@ class Discriminator(nn.Module):
 
         # 注意 返回的y的shape 是5维的!!!!!
         return y
+
+
+class TVLoss(nn.Module):
+    def __init__(self,TVLoss_weight=1):
+        super(TVLoss,self).__init__()
+        self.TVLoss_weight = TVLoss_weight
+
+    def forward(self,x):
+        batch_size = x.size()[0]
+        h_x = x.size()[2]
+        w_x = x.size()[3]
+        count_h = self._tensor_size(x[:,:,1:,:])
+        count_w = self._tensor_size(x[:,:,:,1:])
+        h_tv = torch.pow((x[:,:,1:,:]-x[:,:,:h_x-1,:]),2).sum()
+        w_tv = torch.pow((x[:,:,:,1:]-x[:,:,:,:w_x-1]),2).sum()
+        return self.TVLoss_weight*2*(h_tv/count_h+w_tv/count_w)/batch_size
+
+    def _tensor_size(self,t):
+        return t.size()[1]*t.size()[2]*t.size()[3]
+
+class Spe_loss(nn.Module):
+    def __init__(self):
+        super(Spe_loss,self).__init__()
+
+    def forward(self,x,y,shape=144):
+
+        loss = 0
+        for i in range(shape):
+            for j in range(shape):
+                fz = (x[:,:,i,j] * y[:,:,i,j]).sum()
+                fm = ((x[:,:,i,j])**2).sum() + ((y[:,:,i,j])**2).sum()
+                loss += torch.acos(fz/fm)
+
+        return loss / (shape**2)
+
+
+
+
+
+class Loss(nn.Module):
+    def __init__(self):
+        super(Loss,self).__init__()
+
+    def forward(self,x,y,l1=1,l2=1e-2,l3=1e-3):
+
+        l1 = nn.L1Loss()
+        l1 = l1(x,y)
+
+        ltv = TVLoss()
+        ltv = TVLoss(x)
+        print(ltv)
+        #1
+        ls = l1 + 1e-6*(ltv.data)
+        #2
+        le = Spe_loss()
+        le = le(x,y)
+        # #3
+        # la = nn.BCELoss()
+        
+        # if labels:
+        #     l = torch.ones(bs,1)
+        #     la = la(y,l)
+
+        # else:
+        #     l = torch.zeros(bs,1)
+        #     la =  la(x,l)
+
+        return l1*ls + l2*le 
+
+
