@@ -47,20 +47,35 @@ def save_cave_data():
     np.save('test.npy',data[26:])
 
 def PSNR_GPU(img1, img2):
-    return 10. * torch.log10(1. / torch.mean((img1 - img2) ** 2))
+    mpsnr = 0
+    for l in range(img1.size[1]):
+
+        mpsnr += 10. * torch.log10(torch.max(img1)**2 / torch.mean((img1 - img2) ** 2))
+
+    return mpsnr / img1.size[1]
 
 def SAM_GPU(im_true, im_fake):
-    C = im_true.size()[1]
-    H = im_true.size()[2]
-    W = im_true.size()[3]
-    esp = 1e-12
-    Itrue = im_true.clone()#.resize_(C, H*W)
-    Ifake = im_fake.clone()#.resize_(C, H*W)
-    nom = torch.mul(Itrue, Ifake).sum(dim=0)#.resize_(H*W)
-    denominator = Itrue.norm(p=2, dim=0, keepdim=True).clamp(min=esp) * \
-                  Ifake.norm(p=2, dim=0, keepdim=True).clamp(min=esp)
-    denominator = denominator.squeeze()
-    sam = torch.div(nom, denominator).acos()
-    sam[sam != sam] = 0
-    sam_sum = torch.sum(sam) / (H * W) / np.pi * 180
-    return sam_sum / 8
+    loss = 0
+
+    for i in range(im_true.size[3]):
+            for j in range(im_true.size[3]):
+                fz = (x[:,:,i,j] * y[:,:,i,j]).sum()
+                fm = torch.pow((x[:,:,i,j]*x[:,:,i,j]).sum(),0.5) + torch.pow((y[:,:,i,j]*y[:,:,i,j]).sum(),0.5)
+                loss += torch.acos(fz/(fm + 1e-12))
+
+    return loss / (im_true.size[3]**2)
+
+    # C = im_true.size()[1]
+    # H = im_true.size()[2]
+    # W = im_true.size()[3]
+    # esp = 1e-12
+    # Itrue = im_true.clone()#.resize_(C, H*W)
+    # Ifake = im_fake.clone()#.resize_(C, H*W)
+    # nom = torch.mul(Itrue, Ifake).sum(dim=0)#.resize_(H*W)
+    # denominator = Itrue.norm(p=2, dim=0, keepdim=True).clamp(min=esp) * \
+    #               Ifake.norm(p=2, dim=0, keepdim=True).clamp(min=esp)
+    # denominator = denominator.squeeze()
+    # sam = torch.div(nom, denominator).acos()
+    # sam[sam != sam] = 0
+    # sam_sum = torch.sum(sam) / (H * W) / np.pi * 180
+    # return sam_sum / 8

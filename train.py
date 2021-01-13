@@ -122,6 +122,7 @@ if __name__ == "__main__":
             #计算fake标签  也就是lr的损失
             fake_hr = g_model(lr)
             output = d_model(fake_hr)
+            print(torch.squeeze(output))
             d_loss_fake = d_criterion(torch.squeeze(output),fake_labels)
             fake_sorce = output
             sorce['fake_sorce'] = fake_sorce.mean().item()
@@ -194,6 +195,3 @@ real_sorce {:.4f} fake_sorce {:.4f}'.format(
 
     torch.save(copy.deepcopy(g_model),OUT_DIR.joinpath('g_model.pth'))
     torch.save(copy.deepcopy(d_model),OUT_DIR.joinpath('d_model.pth'))
-
-
-

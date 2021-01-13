@@ -26,6 +26,7 @@ class LoadData(Dataset):
         self.data = np.load(path)
         self.data = torch.from_numpy(self.data)
         self.data /= 2**16 - 1
+        # print(torch.max(self.data))
 
         #TODO: 先边缘裁剪 以获取HR
         shape = self.data.shape
@@ -45,7 +46,7 @@ class LoadData(Dataset):
     
     def down_sample(self, data, s=4):
         #TODO: 添加高斯噪声(0.01) 并降采样 
-        data = data + 0.01*torch.randn(*(data.shape))
+        # data = data + 0.0000001*torch.randn(*(data.shape))
 
         data = interpolate(
             data,
