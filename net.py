@@ -199,7 +199,7 @@ class Spe_loss(nn.Module):
         for i in range(shape):
             for j in range(shape):
                 fz = (x[:,:,i,j] * y[:,:,i,j]).sum()
-                fm = torch.pow((x[:,:,i,j]*x[:,:,i,j]).sum(),0.5) + torch.pow((y[:,:,i,j]*y[:,:,i,j]).sum(),0.5)
+                fm = torch.pow((x[:,:,i,j]*x[:,:,i,j]).sum(),0.5) * torch.pow((y[:,:,i,j]*y[:,:,i,j]).sum(),0.5)
                 loss += torch.acos(fz/fm)
 
         return loss / (shape**2)

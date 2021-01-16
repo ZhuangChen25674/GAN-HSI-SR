@@ -67,16 +67,16 @@ if __name__ == "__main__":
         lr = LR
     )
 
-    best_weight = {
-        'g_weight': copy.deepcopy(g_model.state_dict()),
-        'd_weight': copy.deepcopy(d_model.state_dict())
-    }
+    # best_weight = {
+    #     'g_weight': copy.deepcopy(g_model.state_dict()),
+    #     'd_weight': copy.deepcopy(d_model.state_dict())
+    # }
 
-    best_sorce = {
-        'psnr'  : 0.0,
-        'sam'   : 180.0,
-        'epoch' : 0,
-    }
+    # best_sorce = {
+    #     'psnr'  : 0.0,
+    #     'sam'   : 180.0,
+    #     'epoch' : 0,
+    # }
 
     for epoch in range(EPOCHS):
 
@@ -122,7 +122,6 @@ if __name__ == "__main__":
             #计算fake标签  也就是lr的损失
             fake_hr = g_model(lr)
             output = d_model(fake_hr)
-            print(torch.squeeze(output))
             d_loss_fake = d_criterion(torch.squeeze(output),fake_labels)
             fake_sorce = output
             sorce['fake_sorce'] = fake_sorce.mean().item()
@@ -149,6 +148,7 @@ if __name__ == "__main__":
             hr = torch.squeeze(hr)
             g_loss = criterion['l1'](fake_hr,hr) + criterion['ltv'](fake_hr) * 1e-6 \
                 + 1e-2 * criterion['ls'](fake_hr,hr)
+            # print(criterion['l1'](fake_hr,hr),criterion['ltv'](fake_hr),criterion['ls'](fake_hr,hr))
             sorce['g_loss'] = g_loss
 
 
@@ -193,5 +193,5 @@ real_sorce {:.4f} fake_sorce {:.4f}'.format(
                 val_count += 1
 
 
-    torch.save(copy.deepcopy(g_model),OUT_DIR.joinpath('g_model.pth'))
-    torch.save(copy.deepcopy(d_model),OUT_DIR.joinpath('d_model.pth'))
+    torch.save(copy.deepcopy(g_model.state_dict()),OUT_DIR.joinpath('g_model.pth'))
+    torch.save(copy.deepcopy(d_model.state_dict()),OUT_DIR.joinpath('d_model.pth'))

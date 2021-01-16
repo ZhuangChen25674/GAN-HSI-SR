@@ -18,6 +18,8 @@ from PIL import Image
 import numpy as np
 import torch.nn as nn
 import torch
+from matplotlib import pyplot as plt
+from G import OUT_DIR
 
 def save_cave_data():
     # 生成{train val test}.npy 文件
@@ -48,34 +50,71 @@ def save_cave_data():
 
 def PSNR_GPU(img1, img2):
     mpsnr = 0
-    for l in range(img1.size[1]):
+    for l in range(img1.size()[1]):
 
         mpsnr += 10. * torch.log10(torch.max(img1)**2 / torch.mean((img1 - img2) ** 2))
 
-    return mpsnr / img1.size[1]
+    return mpsnr / img1.size()[1]
 
-def SAM_GPU(im_true, im_fake):
+def SAM_GPU(y, x,shape=144):
     loss = 0
 
-    for i in range(im_true.size[3]):
-            for j in range(im_true.size[3]):
+    for i in range(shape):
+            for j in range(shape):
                 fz = (x[:,:,i,j] * y[:,:,i,j]).sum()
-                fm = torch.pow((x[:,:,i,j]*x[:,:,i,j]).sum(),0.5) + torch.pow((y[:,:,i,j]*y[:,:,i,j]).sum(),0.5)
+                fm = torch.pow((x[:,:,i,j]*x[:,:,i,j]).sum(),0.5) * torch.pow((y[:,:,i,j]*y[:,:,i,j]).sum(),0.5)
                 loss += torch.acos(fz/(fm + 1e-12))
 
-    return loss / (im_true.size[3]**2)
+    return (loss / (shape**2 * x.size()[0] )) * 180
 
-    # C = im_true.size()[1]
-    # H = im_true.size()[2]
-    # W = im_true.size()[3]
-    # esp = 1e-12
-    # Itrue = im_true.clone()#.resize_(C, H*W)
-    # Ifake = im_fake.clone()#.resize_(C, H*W)
-    # nom = torch.mul(Itrue, Ifake).sum(dim=0)#.resize_(H*W)
-    # denominator = Itrue.norm(p=2, dim=0, keepdim=True).clamp(min=esp) * \
-    #               Ifake.norm(p=2, dim=0, keepdim=True).clamp(min=esp)
-    # denominator = denominator.squeeze()
-    # sam = torch.div(nom, denominator).acos()
-    # sam[sam != sam] = 0
-    # sam_sum = torch.sum(sam) / (H * W) / np.pi * 180
-    # return sam_sum / 8
+
+def plot():
+
+    path = '/home/hefeng/data1/HSI-SR/GAN-HSI-SR/train.log'
+    sam_1 = []
+    psnr_1 = []
+    sam_2 = []
+    psnr_2 = []
+
+    with open(path,'r') as f:
+   
+        for line in f.readlines():
+
+            line = line.strip()
+            
+            if 'psnr' in line and 'step : 1' in line :
+
+                psnr_1.append(float(line.split(' ')[-5]))
+                sam_1.append(float(line.split(' ')[-1]))
+
+            if 'psnr' in line and 'step : 2' in line :
+
+                psnr_2.append(float(line.split(' ')[-5]))
+                sam_2.append(float(line.split(' ')[-1]))
+
+    psnr = (np.array(psnr_1) + np.array(psnr_2)) / 2
+    sam = (np.array(sam_1) + np.array(sam_2)) / 2
+
+    epochs = [i for i in range(len(psnr))]
+
+    fib_size = (5,4)
+    fon_size = 12
+
+    plt.figure(figsize=fib_size)
+    plt.title('sam of every epoch',fontsize=fon_size)
+    plt.xlabel('epoch',fontsize=fon_size)
+    plt.ylabel('sam', fontsize=fon_size)
+    plt.plot(epochs, sam, 'k.')
+    plt.grid(True, linestyle = "-.", color = "k", linewidth = "1.1")
+    plt.savefig(OUT_DIR.joinpath('sam.png'))
+
+
+    plt.figure(figsize=fib_size)
+    plt.title('psnr of every epoch',fontsize=fon_size)
+    plt.xlabel('epoch',fontsize=fon_size)
+    plt.ylabel('psnr', fontsize=fon_size)
+    plt.plot(epochs, psnr, 'k.')
+    plt.grid(True, linestyle = "-.", color = "k", linewidth = "1.1")
+    plt.savefig(OUT_DIR.joinpath('psnr.png'))
+
+plot()
