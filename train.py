@@ -25,7 +25,7 @@ from utils import SAM_GPU, PSNR_GPU
 from pathlib import Path
 
 
-EPOCHS = 100
+EPOCHS = 200
 BATCH_SIZE = 8
 LR = 1e-3
 

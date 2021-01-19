@@ -117,4 +117,3 @@ def plot():
     plt.grid(True, linestyle = "-.", color = "k", linewidth = "1.1")
     plt.savefig(OUT_DIR.joinpath('psnr.png'))
 
-plot()

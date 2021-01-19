@@ -132,3 +132,4 @@ dmypy.json
 data/*
 weight/*
 try.py
+G.py
