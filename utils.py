@@ -70,7 +70,7 @@ def SAM_GPU(y, x,shape=144):
 
 def plot():
 
-    path = '/home/hefeng/data1/HSI-SR/GAN-HSI-SR/train.log'
+    path = '/home/yons/data1/chenzhuang/HSI-SR/GAN-HSI-SR/train.log'
     sam_1 = []
     psnr_1 = []
     sam_2 = []

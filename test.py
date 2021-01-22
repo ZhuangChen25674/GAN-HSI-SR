@@ -23,7 +23,8 @@ from utils import *
 
 BATCH_SIZE = 3
 FAKE_HR = torch.zeros([6*3,31,144,144])
-
+PSNR = 0
+SAM = 0
 
 if __name__ == "__main__":
     
@@ -88,12 +89,13 @@ if __name__ == "__main__":
             print('img : {} psnr : {:.4f}  sam : {:.4f}'.format(
                 count+1,psnr,sam
                 ))
-
+            PSNR += psnr
+            SAM += sam
 
         FAKE_HR[count*3:(count+1)*3] = fake_hr
 
         count += 1
-
+    print(PSNR / 6, SAM / 6)
     torch.save(FAKE_HR, OUT_DIR.joinpath('test_fake_hr.pth'))
             
 
