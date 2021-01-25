@@ -59,10 +59,10 @@ class Attention(nn.Module):
         x1 = self.conv_1(x) #bs 32 31 h w
         x2 = self.avg_poll(x1) #bs 32 31 1 1
         
-        x2_1 = x2.resize(self.shape[0], self.shape[1], self.shape[2]) # bs 32 31
+        x2_1 = x2.reshape(self.shape[0], self.shape[1], self.shape[2]) # bs 32 31
 
         x3 = self.conv_2(x2_1) # bs 32 31
-        x3_1 = x3.resize(self.shape[0], self.shape[1], self.shape[2], 1, 1) # bs 32 31 1 1
+        x3_1 = x3.reshape(self.shape[0], self.shape[1], self.shape[2], 1, 1) # bs 32 31 1 1
         
         x4 = x1 * x3_1
 

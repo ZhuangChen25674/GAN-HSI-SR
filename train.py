@@ -25,8 +25,8 @@ from utils import SAM_GPU, PSNR_GPU
 from pathlib import Path
 
 
-EPOCHS = 200
-BATCH_SIZE = 8
+EPOCHS = 100
+BATCH_SIZE = 16
 LR = 1e-3
 
 if __name__ == "__main__":
@@ -50,13 +50,6 @@ if __name__ == "__main__":
         'la' : nn.BCELoss(),
     }
 
-    sorce = {
-        'd_loss':0.0,
-        'g_loss':0.0,
-        'real_sorce':0.0,
-        'fake_sorce':0.0
-    }
-
 
     g_optimizer = optim.Adam(
         g_model.parameters(),
@@ -72,11 +65,19 @@ if __name__ == "__main__":
     #     'd_weight': copy.deepcopy(d_model.state_dict())
     # }
 
-    # best_sorce = {
-    #     'psnr'  : 0.0,
-    #     'sam'   : 180.0,
-    #     'epoch' : 0,
-    # }
+    sorce = {
+        'd_loss':0.0,
+        'g_loss':0.0,
+        'real_sorce':0.0,
+        'fake_sorce':0.0
+    }
+
+
+    best_sorce = {
+        'psnr'  : 0.0,
+        'sam'   : 180.0,
+        'epoch' : 0,
+    }
 
     for epoch in range(EPOCHS):
 
@@ -113,6 +114,7 @@ if __name__ == "__main__":
             # ================================================ #
             #                训练判别器部分                     #
             # ================================================ #
+            
             #计算real标签 也就是hr的损失
             output = d_model(hr)
             d_loss_real = d_criterion(torch.squeeze(output),real_labels)
@@ -127,7 +129,7 @@ if __name__ == "__main__":
             sorce['fake_sorce'] = fake_sorce.mean().item()
 
             # 反向传播 参数更新部分
-            d_loss = d_loss_real + d_loss_fake
+            d_loss = (d_loss_real + d_loss_fake) * 1e-3
             sorce['d_loss'] = d_loss.item()
             d_optimizer.zero_grad()
             g_optimizer.zero_grad()
@@ -172,6 +174,8 @@ real_sorce {:.4f} fake_sorce {:.4f}'.format(
         g_model.eval()
         d_model.eval()
         val_count = 0
+        val_psnr = 0
+        val_sam = 0
         for lr,hr in val_data:
 
             lr = lr.reshape((lr.shape[0],1,lr.shape[1],lr.shape[2],lr.shape[3]))
@@ -184,14 +188,29 @@ real_sorce {:.4f} fake_sorce {:.4f}'.format(
                 fake_hr = g_model(lr)
                 fake_hr = torch.squeeze(fake_hr)
                 hr = torch.squeeze(hr)
+
                 psnr = PSNR_GPU(hr.cpu(),fake_hr.cpu())
+                val_psnr += psnr
                 sam = SAM_GPU(hr,fake_hr)
+                val_sam += sam
+
                 print('val epoch : {} step : {} psnr : {:.4f}  sam : {:.4f}'.format(
                     epoch,val_count+1,psnr,sam
                 ))
 
                 val_count += 1
 
+        print('val averagr psnr : {:.4f} sam : {:.4f}'.format(
+            val_psnr/(val_count),
+            val_sam/(val_count))
+            )
 
-    torch.save(copy.deepcopy(g_model.state_dict()),OUT_DIR.joinpath('g_model.pth'))
-    torch.save(copy.deepcopy(d_model.state_dict()),OUT_DIR.joinpath('d_model.pth'))
+        if val_psnr/(val_count+1) > best_sorce['psnr']:
+            #以psnr为主  找到最好的 保存下来
+            best_sorce['psnr'] = val_psnr/(val_count)
+
+            torch.save(copy.deepcopy(g_model.state_dict()),OUT_DIR.joinpath('g_model.pth'))
+            torch.save(copy.deepcopy(d_model.state_dict()),OUT_DIR.joinpath('d_model.pth'))
+
+
+    

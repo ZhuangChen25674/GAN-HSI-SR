@@ -21,8 +21,8 @@ from data import LoadData
 from utils import *
 
 
-BATCH_SIZE = 3
-FAKE_HR = torch.zeros([6*3,31,144,144])
+BATCH_SIZE = 9
+FAKE_HR = torch.zeros([6*9,31,144,144])
 PSNR = 0
 SAM = 0
 
@@ -92,7 +92,7 @@ if __name__ == "__main__":
             PSNR += psnr
             SAM += sam
 
-        FAKE_HR[count*3:(count+1)*3] = fake_hr
+        FAKE_HR[count*9:(count+1)*9] = fake_hr
 
         count += 1
     print(PSNR / 6, SAM / 6)

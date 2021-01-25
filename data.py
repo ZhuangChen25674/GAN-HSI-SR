@@ -21,7 +21,7 @@ from torch.nn.functional import interpolate
 
 class LoadData(Dataset):
 
-    def __init__(self,path,s=4):
+    def __init__(self,path,s=4,fis=144):
         # num 31 512 512 
         self.data = np.load(path)
         self.data = torch.from_numpy(self.data)
@@ -34,13 +34,17 @@ class LoadData(Dataset):
         
         # 取三张
         #32*3 31 144 144
-        self.HR = torch.zeros((shape[0]*3,31,144,144))
+        self.HR = torch.zeros((shape[0]*9,31,144,144))
+        
+        count = 0
+        for i in range(shape[0]):
+            for x in range(0, 492-fis, fis):
+                for y in range(0, 492-fis, fis):
 
-        self.HR[:shape[0]] = self.data[:,:,:144,:144]
-        self.HR[shape[0]:shape[0]*2] = self.data[:,:,144:144*2,144:144*2]
-        self.HR[shape[0]*2:shape[0]*3] = self.data[:,:,144*2:144*3,144*2:144*3]
-
-        # 得到LR图像 32*3 31 36 36 
+                    self.HR[count] = self.data[i,:,x:x+fis,y:y+fis]
+                    count += 1
+        # 得到LR图像 num*9 31 36 36 
+        # print(count)
         self.LR = self.down_sample(self.HR)
 
     
@@ -51,7 +55,8 @@ class LoadData(Dataset):
         data = interpolate(
             data,
             scale_factor=1/s,
-            mode='bicubic'
+            mode='bicubic',
+            align_corners=True
         )
 
         return data
