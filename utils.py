@@ -50,14 +50,14 @@ def save_cave_data():
     np.save('test.npy',data[26:])
 
 def PSNR_GPU(img1, img2):
-    # mpsnr = 0
-    # for l in range(img1.size()[1]):
+    mpsnr = 0
+    for l in range(img1.size()[1]):
 
-    #     mpsnr += 10. * torch.log10((torch.max(img1[:,l,:,:])**2) / torch.mean((img1[:,l,:,:] - img2[:,l,:,:]) ** 2))
+        mpsnr += 10. * torch.log10((torch.max(img1[:,l,:,:])**2) / torch.mean((img1[:,l,:,:] - img2[:,l,:,:]) ** 2))
 
-    # return mpsnr / img1.size()[1]
+    return mpsnr / img1.size()[1]
 
-    return 10. * torch.log10((torch.max(img1)**2) / torch.mean((img1 - img2) ** 2))
+    # return 10. * torch.log10((torch.max(img1)**2) / torch.mean((img1 - img2) ** 2))
 
 def SAM_GPU(y, x,shape=144):
     loss = 0

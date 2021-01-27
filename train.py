@@ -117,19 +117,20 @@ if __name__ == "__main__":
             
             #计算real标签 也就是hr的损失
             output = d_model(hr)
-            d_loss_real = d_criterion(torch.squeeze(output),real_labels)
+            d_loss_real = criterion['l1'](torch.squeeze(output),real_labels)
             real_sorce = output
             sorce['real_sorce'] = real_sorce.mean().item()
 
             #计算fake标签  也就是lr的损失
             fake_hr = g_model(lr)
             output = d_model(fake_hr)
-            d_loss_fake = d_criterion(torch.squeeze(output),fake_labels)
+            d_loss_fake = criterion['l1'](torch.squeeze(output),fake_labels)
+            # print(torch.squeeze(output))
             fake_sorce = output
             sorce['fake_sorce'] = fake_sorce.mean().item()
 
             # 反向传播 参数更新部分
-            d_loss = (d_loss_real + d_loss_fake) * 1e-3
+            d_loss = d_loss_real + d_loss_fake
             sorce['d_loss'] = d_loss.item()
             d_optimizer.zero_grad()
             g_optimizer.zero_grad()
@@ -148,7 +149,7 @@ if __name__ == "__main__":
             # print(fake_hr.shape,hr.shape)
             fake_hr = torch.squeeze(fake_hr)
             hr = torch.squeeze(hr)
-            g_loss = criterion['l1'](fake_hr,hr) + criterion['ltv'](fake_hr) * 1e-6 \
+            g_loss = criterion['l1'](fake_hr,hr) + \
                 + 1e-2 * criterion['ls'](fake_hr,hr)
             # print(criterion['l1'](fake_hr,hr),criterion['ltv'](fake_hr),criterion['ls'](fake_hr,hr))
             sorce['g_loss'] = g_loss
