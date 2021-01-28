@@ -25,12 +25,12 @@ class LoadData(Dataset):
         # num 31 512 512 
         self.data = np.load(path)
         self.data = torch.from_numpy(self.data)
-        self.data /= 2**16 - 1
+        self.data /= (2**16 - 1)
         # print(torch.max(self.data))
 
         #TODO: 先边缘裁剪 以获取HR
         shape = self.data.shape
-        self.data = self.data[:,:,(s+6):shape[2]-(s+6),(s+6):shape[3]-(s+6)]
+        # self.data = self.data[:,:,(s+6):shape[2]-(s+6),(s+6):shape[3]-(s+6)]
         
         # 取三张
         #32*3 31 144 144
@@ -38,8 +38,8 @@ class LoadData(Dataset):
         
         count = 0
         for i in range(shape[0]):
-            for x in range(0, 492-fis, fis):
-                for y in range(0, 492-fis, fis):
+            for x in range((s+6), shape[2]-(s+6)-fis, fis):
+                for y in range((s+6), shape[2]-(s+6)-fis, fis):
 
                     self.HR[count] = self.data[i,:,x:x+fis,y:y+fis]
                     count += 1

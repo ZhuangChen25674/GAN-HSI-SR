@@ -23,6 +23,7 @@ from utils import *
 
 BATCH_SIZE = 9
 FAKE_HR = torch.zeros([6*9,31,144,144])
+HR = torch.zeros([6*9,31,144,144])
 PSNR = 0
 SAM = 0
 
@@ -93,10 +94,13 @@ if __name__ == "__main__":
             SAM += sam
 
         FAKE_HR[count*9:(count+1)*9] = fake_hr
-
+        HR[count*9:(count+1)*9] = hr
+        print(hr.size())
+        
         count += 1
     print(PSNR / 6, SAM / 6)
     torch.save(FAKE_HR, OUT_DIR.joinpath('test_fake_hr.pth'))
+    torch.save(HR, OUT_DIR.joinpath('hr.pth'))
             
 
 

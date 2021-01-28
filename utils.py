@@ -25,14 +25,15 @@ import scipy.io as io
 def save_cave_data():
     # 生成{train val test}.npy 文件
 
-    path = Path('/home/hefeng/data1/HSI-SR/DataSet/CAVE')
+    path = Path('/home/yons/data1/chenzhuang/HSI-SR/DataSet/CAVE')
     data = np.zeros((32,31,512,512))
 
     for i,p in enumerate(path.iterdir()) :
+        print(p)
         for j in range(31):
             
             img_path = p.joinpath(p.parts[-1],p.parts[-1]+'_{:0>2d}.png'.format(j+1))
-            print(img_path)
+            # print(img_path)
             img = Image.open(img_path)
             img = np.array(img)
 
@@ -42,13 +43,13 @@ def save_cave_data():
             
             if len(img.shape) == 2:
                 data[i][j] = img
-            print((i,j))
+            # print((i,j))
 
     print(data[:20].shape,data[20:26].shape,data[26:].shape)
     np.save('train.npy',data[:20])
     np.save('val.npy',data[20:26])
     np.save('test.npy',data[26:])
-
+# save_cave_data()
 def PSNR_GPU(img1, img2):
     mpsnr = 0
     for l in range(img1.size()[1]):
@@ -120,20 +121,25 @@ def plot():
     plt.grid(True, linestyle = "-.", color = "k", linewidth = "1.1")
     plt.savefig(OUT_DIR.joinpath('psnr.png'))
 
-def save_mat(l=31,w=144,h=144):
+def save_mat(l=31,w=144,h=144,fis=144):
 
-    path = '/home/yons/data1/chenzhuang/HSI-SR/GAN-HSI-SR/weight/test_fake_hr.pth'
+    path = '/home/yons/data1/chenzhuang/HSI-SR/GAN-HSI-SR/weight/hr.pth'
     base_path = Path('/home/yons/data1/chenzhuang/HSI-SR/GAN-HSI-SR/data')
     data = torch.load(path)
-    for i in range(1,7):
-        img = torch.zeros([l,w*3,h*3])
 
-        img[:,:w,:w] = data[3*i-3,:,:,:]
-        img[:,w:w*2,w:w*2] = data[3*i-2,:,:,:]
-        img[:,w*2:w*3,w*2:w*3] = data[3*i-1,:,:,:]
+    count = 0
+    for i in range(6):
+        
+        img = torch.zeros([31,144*3,144*3])
+
+        for x in range(0, 492-fis, fis):
+                for y in range(0, 492-fis, fis):
+
+                    img[:,x:x+fis,y:y+fis] = data[count]
+                    count += 1
 
         img = img.numpy()
-        img *= 2**16 - 1
+        img *= (2**16 - 1)
         img = img.astype(np.int16)
 
         im = Image.fromarray(img[27])
@@ -141,6 +147,9 @@ def save_mat(l=31,w=144,h=144):
 
         io.savemat(base_path.joinpath('img{}.mat'.format(i)),{'data':img})
 
-plot()
+save_mat()
+
+
+
 
 
