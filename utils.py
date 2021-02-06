@@ -21,6 +21,7 @@ import torch
 from matplotlib import pyplot as plt
 from G import OUT_DIR
 import scipy.io as io
+import h5py
 
 def save_cave_data():
     # 生成{train val test}.npy 文件
@@ -49,36 +50,42 @@ def save_cave_data():
     np.save('train.npy',data[:20])
     np.save('val.npy',data[20:26])
     np.save('test.npy',data[26:])
-# save_cave_data()
+
+def calc_psnr(img1, img2):
+    return 10. * torch.log10(1. / torch.mean((img1 - img2) ** 2))
+
+
 def PSNR_GPU(img1, img2):
     mpsnr = 0
     for l in range(img1.size()[1]):
 
-        mpsnr += 10. * torch.log10((torch.max(img1[:,l,:,:])**2) / torch.mean((img1[:,l,:,:] - img2[:,l,:,:]) ** 2))
+        mpsnr += 10. * torch.log10(1. / torch.mean((img1[:,l,:,:] - img2[:,l,:,:]) ** 2))
 
     return mpsnr / img1.size()[1]
 
     # return 10. * torch.log10((torch.max(img1)**2) / torch.mean((img1 - img2) ** 2))
 
-def SAM_GPU(y, x,shape=144):
-    loss = 0
-
-    for i in range(shape):
-            for j in range(shape):
-                fz = (x[:,:,i,j] * y[:,:,i,j]).sum()
-                fm = torch.pow((x[:,:,i,j]*x[:,:,i,j]).sum(),0.5) * torch.pow((y[:,:,i,j]*y[:,:,i,j]).sum(),0.5)
-                loss += torch.acos(fz/(fm + 1e-12))
-
-    return (loss / (shape**2 * x.size()[0] )) * 180
+def SAM(pred, gt):
+    pred = pred.numpy()
+    gt = gt.numpy()
+    eps = 2.2204e-16
+    pred[np.where(pred==0)] = eps
+    gt[np.where(gt==0)] = eps 
+      
+    nom = sum(pred*gt)
+    denom1 = sum(pred*pred)**0.5
+    denom2 = sum(gt*gt)**0.5
+    sam = np.real(np.arccos(nom.astype(np.float32)/(denom1*denom2+eps)))
+    sam[np.isnan(sam)]=0     
+    sam_sum = np.mean(sam)*180/np.pi   	       
+    return  sam_sum
 
 
 def plot():
 
-    path = '/home/yons/data1/chenzhuang/HSI-SR/GAN-HSI-SR/train.log'
-    sam_1 = []
-    psnr_1 = []
-    sam_2 = []
-    psnr_2 = []
+    path = '/home/yons/data1/chenzhuang/HSI-SR/GAN-HSI-SR/icvl_train.log'
+    psnr = []
+    sam = []
 
     with open(path,'r') as f:
    
@@ -86,18 +93,12 @@ def plot():
 
             line = line.strip()
             
-            if 'psnr' in line and 'step : 1' in line :
+            if 'val averagr psnr : ' in line:
 
-                psnr_1.append(float(line.split(' ')[-5]))
-                sam_1.append(float(line.split(' ')[-1]))
-
-            if 'psnr' in line and 'step : 2' in line :
-
-                psnr_2.append(float(line.split(' ')[-5]))
-                sam_2.append(float(line.split(' ')[-1]))
-
-    psnr = (np.array(psnr_1) + np.array(psnr_2)) / 2
-    sam = (np.array(sam_1) + np.array(sam_2)) / 2
+                line = line.split(' ')
+                psnr.append(float(line[-4]))
+                sam.append(float(line[-1]))
+            
 
     epochs = [i for i in range(len(psnr))]
 
@@ -110,7 +111,7 @@ def plot():
     plt.ylabel('sam', fontsize=fon_size)
     plt.plot(epochs, sam, 'k.')
     plt.grid(True, linestyle = "-.", color = "k", linewidth = "1.1")
-    plt.savefig(OUT_DIR.joinpath('sam.png'))
+    plt.savefig(OUT_DIR.joinpath('icvl_sam.png'))
 
 
     plt.figure(figsize=fib_size)
@@ -119,37 +120,73 @@ def plot():
     plt.ylabel('psnr', fontsize=fon_size)
     plt.plot(epochs, psnr, 'k.')
     plt.grid(True, linestyle = "-.", color = "k", linewidth = "1.1")
-    plt.savefig(OUT_DIR.joinpath('psnr.png'))
+    plt.savefig(OUT_DIR.joinpath('icvl_psnr.png'))
+
 
 def save_mat(l=31,w=144,h=144,fis=144):
 
-    path = '/home/yons/data1/chenzhuang/HSI-SR/GAN-HSI-SR/weight/hr.pth'
+    path = '/home/yons/data1/chenzhuang/HSI-SR/GAN-HSI-SR/weight/icvl_test_fake_hr.pth'
     base_path = Path('/home/yons/data1/chenzhuang/HSI-SR/GAN-HSI-SR/data')
     data = torch.load(path)
 
     count = 0
-    for i in range(6):
+    for i in range(8):
         
-        img = torch.zeros([31,144*3,144*3])
+        img = torch.zeros([31,144*9,144*8])
 
-        for x in range(0, 492-fis, fis):
-                for y in range(0, 492-fis, fis):
+        for x in range(0, 1372-fis, fis):
+                for y in range(0, 1174-fis, fis):
 
                     img[:,x:x+fis,y:y+fis] = data[count]
                     count += 1
 
         img = img.numpy()
-        img *= (2**16 - 1)
-        img = img.astype(np.int16)
+        img *= (255)
+        img = img.astype(np.uint8)
 
         im = Image.fromarray(img[27])
-        im.save(base_path.joinpath('img{}.png'.format(i)))
+        im = im.rotate(180)
+        im.save(base_path.joinpath('icvl_img{}.png'.format(i)))
 
-        io.savemat(base_path.joinpath('img{}.mat'.format(i)),{'data':img})
+        io.savemat(base_path.joinpath('icvl_img{}.mat'.format(i)),{'data':img})
 
 save_mat()
+def get_paths():
+    
+    PATH = '/home/yons/data1/chenzhuang/HSI-SR/DataSet/ICVL/'
+    train_paths = []
+    val_paths = []
+    test_paths = []
 
+    with open(PATH + 'train_name.txt', 'r') as f:
+        for i in f.readlines():
+            train_paths.append(PATH + i.strip())
 
+    with open(PATH + 'val_name.txt', 'r') as f:
+        for i in f.readlines():
+            val_paths.append(PATH + i.strip())
+
+    with open(PATH + 'test_name.txt', 'r') as f:
+        for i in f.readlines():
+            test_paths.append(PATH + i.strip())
+
+    return train_paths, val_paths, test_paths
+
+def save_icvl():
+
+    train_paths, val_paths, test_paths = get_paths()
+    
+    train_data = np.zeros((len(train_paths,31,144,144)))
+    val_data = np.zeros((len(val_paths,31,144,144)))
+    test_data = np.zeros((len(test_paths,31,144,144)))
+
+    for i in range(len(train_paths)):
+
+            img = h5py.File(paths[i], 'r')['rad']
+            img = np.array(img)
+            img /= 4095.0
+
+    pass
 
 
 

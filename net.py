@@ -87,6 +87,8 @@ class Generator(nn.Module):
         )
 
         self.attn_1 = Attention(bs, 32, l, h, w)
+        self.attn_2 = Attention(bs, 32, l, h, w)
+        self.attn_3 = Attention(bs, 32, l, h, w)
 
         self.conv_2 = nn.Sequential(
             nn.Conv3d(32, 32, KERNEL_SIZE, 1, (2,1,1)),
@@ -109,10 +111,12 @@ class Generator(nn.Module):
         x1 = self.conv_1(x)
 
         x2 = self.attn_1(x1)
+        x2 = self.attn_2(x2)
+        x2 = self.attn_3(x2)
 
-        # x2_1 = self.conv_2(x2)
+        x2_1 = self.conv_2(x2)
 
-        # x3 = x2_1 + x1
+        x3 = x2_1 + x1
 
         y = self.conv_3(x2)
 

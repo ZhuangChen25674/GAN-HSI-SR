@@ -20,8 +20,8 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 import copy
 from G import *
-from data import LoadData
-from utils import SAM, PSNR_GPU
+from icvl_data import LoadData
+from utils import SAM, PSNR_GPU, get_paths
 from pathlib import Path
 
 
@@ -79,10 +79,12 @@ if __name__ == "__main__":
         'epoch' : 0,
     }
 
+    train_paths, val_paths, _ = get_paths()
+
     for epoch in range(EPOCHS):
 
         train_data = DataLoader(
-            LoadData(TRAIN_DATA_PATH),
+            LoadData(train_paths,'train'),
             batch_size=BATCH_SIZE,
             shuffle=True,
             num_workers= 2, 
@@ -91,7 +93,7 @@ if __name__ == "__main__":
         )
 
         val_data = DataLoader(
-            LoadData(VAL_DATA_PATH),
+            LoadData(val_paths,'val'),
             batch_size=BATCH_SIZE,
             shuffle=True,
             num_workers= 2, 
@@ -150,7 +152,6 @@ if __name__ == "__main__":
             fake_hr = torch.squeeze(fake_hr)
             hr = torch.squeeze(hr)
             g_loss = criterion['l1'](fake_hr,hr) + \
-                + 1e-2 * criterion['ls'](fake_hr,hr) + \
                 1e-3 * d_criterion(torch.squeeze(output),real_labels)
             # print(criterion['l1'](fake_hr,hr),criterion['ltv'](fake_hr),criterion['ls'](fake_hr,hr))
             sorce['g_loss'] = g_loss
@@ -215,8 +216,8 @@ real_sorce {:.4f} fake_sorce {:.4f}'.format(
             #以psnr为主  找到最好的 保存下来
             best_sorce['psnr'] = val_psnr/(val_count)
 
-            torch.save(copy.deepcopy(g_model.state_dict()),OUT_DIR.joinpath('g_model.pth'))
-            torch.save(copy.deepcopy(d_model.state_dict()),OUT_DIR.joinpath('d_model.pth'))
+            torch.save(copy.deepcopy(g_model.state_dict()),OUT_DIR.joinpath('icvl_g_model.pth'))
+            torch.save(copy.deepcopy(d_model.state_dict()),OUT_DIR.joinpath('icvl_d_model.pth'))
 
 
     
