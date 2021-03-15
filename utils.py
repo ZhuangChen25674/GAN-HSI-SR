@@ -22,6 +22,7 @@ from matplotlib import pyplot as plt
 from G import OUT_DIR
 import scipy.io as io
 import h5py
+from torch.nn.functional import interpolate
 
 def save_cave_data():
     # 生成{train val test}.npy 文件
@@ -52,7 +53,7 @@ def save_cave_data():
     np.save('test.npy',data[26:])
 
 def calc_psnr(img1, img2):
-    return 10. * torch.log10(1. / torch.mean((img1 - img2) ** 2))
+    return 10. * torch.log10((255.0 **2)/ torch.mean((img1 - img2) ** 2))
 
 
 def PSNR_GPU(img1, img2):
@@ -140,17 +141,24 @@ def save_mat(l=31,w=144,h=144,fis=144):
                     img[:,x:x+fis,y:y+fis] = data[count]
                     count += 1
 
+        img = interpolate(
+                img.reshape(1,img.shape[0],img.shape[1],img.shape[2]),
+                scale_factor=1,
+                mode='bicubic'
+                )
+        img = torch.squeeze(img)
         img = img.numpy()
         img *= (255)
         img = img.astype(np.uint8)
 
         im = Image.fromarray(img[27])
         im = im.rotate(180)
-        im.save(base_path.joinpath('icvl_img{}.png'.format(i)))
+        im.save(base_path.joinpath('process_icvl_img{}.png'.format(i)))
 
-        io.savemat(base_path.joinpath('icvl_img{}.mat'.format(i)),{'data':img})
+        io.savemat(base_path.joinpath('process_icvl_img{}.mat'.format(i)),{'data':img})
 
-save_mat()
+# save_mat()
+
 def get_paths():
     
     PATH = '/home/yons/data1/chenzhuang/HSI-SR/DataSet/ICVL/'
