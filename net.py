@@ -14,6 +14,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 KERNEL_SIZE = (5,3,3)
 PAD_SIZE = (2,1,1)
@@ -29,27 +30,27 @@ class Attention(nn.Module):
 
         self.conv_1 = nn.Sequential(
             nn.Conv3d(32, 32, KERNEL_SIZE, 1, (2,1,1)),
-            nn.BatchNorm3d(32),
+            # nn.BatchNorm3d(32),
             nn.LeakyReLU(),
 
             nn.Conv3d(32, 32, KERNEL_SIZE,1,(2,1,1)),
-            nn.BatchNorm3d(32),
+            # nn.BatchNorm3d(32),
             nn.LeakyReLU(),
         )
         # TODO: 3D均值池化 
-        self.avg_poll =  nn.AvgPool3d(
-            (1, h, w), 1
+        self.avg_poll =  nn.AdaptiveAvgPool3d(
+            (31,1,1)
         )
 
 
-        # TODO: 调整shape = (BS, 32, 31)
+        # TODO: 注意力层是使用FC实现的!!
         self.conv_2 = nn.Sequential(
-            nn.Conv1d(32, 32//4, 1),
+            nn.Linear(31,8,bias=False),
             nn.LeakyReLU(),
 
         #   TODO: 反卷积 增大缩小的特征图
-            nn.Conv1d(32//4,32,1),
-            nn.Softmax()
+            nn.Linear(8,31,bias=False),
+            nn.Sigmoid()
         )
 
 
@@ -94,17 +95,14 @@ class Generator(nn.Module):
             nn.Conv3d(32, 32, KERNEL_SIZE, 1, (2,1,1)),
             nn.LeakyReLU()
         )
-        # TODO: 反卷积大小计算!
-        self.conv_3 = nn.Sequential(
-            nn.ConvTranspose3d(32,32,(3,6,6),(1,2,2),(1,2,2)),
-            nn.LeakyReLU(),
+        self.conv_3 = nn.Conv3d(32, 1, KERNEL_SIZE, 1, (2,1,1))
 
-            nn.ConvTranspose3d(32,32,(3,6,6),(1,2,2),(1,2,2)),
-            nn.LeakyReLU(),
-
-            nn.Conv3d(32,1,KERNEL_SIZE,1,(2,1,1)),
-            nn.Tanh()
+        self.conv_4 = nn.Sequential(
+            nn.Conv3d(1, 1, KERNEL_SIZE, 1, (2,1,1)),
+            nn.LeakyReLU()
         )
+        
+        self.conv_5 = nn.Conv3d(1, 1, KERNEL_SIZE, 1, (2,1,1))
 
     def forward(self,x):
         
@@ -118,9 +116,23 @@ class Generator(nn.Module):
 
         x3 = x2_1 + x1
 
-        y = self.conv_3(x2)
+        x4 = self.conv_3(x3)
+        x4 = torch.squeeze(x4)
+        x4 = F.interpolate(x4,scale_factor=2,mode='bicubic')
+        x4 = x4.reshape(x4.shape[0],1,x4.shape[1],x4.shape[2],x4.shape[3])
+        x4 = self.conv_4(x4)
+        
 
-        return y
+        x4 = torch.squeeze(x4)
+        x4 = F.interpolate(x4,scale_factor=2,mode='bicubic')
+        x4 = x4.reshape(x4.shape[0],1,x4.shape[1],x4.shape[2],x4.shape[3])
+        x4 = self.conv_4(x4)
+
+        x4 = self.conv_4(x4)
+
+        x4 = self.conv_5(x4)
+
+        return x4
 
 
 class Discriminator(nn.Module):
@@ -137,43 +149,84 @@ class Discriminator(nn.Module):
             #TODO: 2通过单边pad完成减半的目的
             nn.ConstantPad3d((1,0,1,0,1,2),1),
             nn.Conv3d(32,32,KERNEL_SIZE,2),
-            nn.BatchNorm3d(32),
+            # nn.BatchNorm3d(32),
             nn.LeakyReLU(),
             #3
             nn.Conv3d(32,64,KERNEL_SIZE,1,(2,1,1)),
-            nn.BatchNorm3d(64),
+            # nn.BatchNorm3d(64),
             nn.LeakyReLU(),
             #4
             nn.ConstantPad3d((1,0,1,0,1,2),1 ),
             nn.Conv3d(64,64,KERNEL_SIZE,2),
-            nn.BatchNorm3d(64),
+            # nn.BatchNorm3d(64),
             nn.LeakyReLU(),
             #5
             nn.Conv3d(64,128,KERNEL_SIZE,1,(2,1,1)),
-            nn.BatchNorm3d(128),
+            # nn.BatchNorm3d(128),
             nn.LeakyReLU(),
             #6
             nn.Conv3d(128,128,KERNEL_SIZE,1,(2,1,1)),
-            nn.BatchNorm3d(128),
+            # nn.BatchNorm3d(128),
             nn.LeakyReLU(),
             #7  TODO: 4倍缩小 l h w = 8 36 36
             #  --> bs 128 1 1 1
-            nn.AvgPool3d((7,36,36),1),
-            nn.Conv3d(128,256,(1,1,1),1),
+            nn.AdaptiveAvgPool3d((1,1,1)),
+
+        )
+
+        self.linera = nn.Sequential(
+            
+            nn.Linear(128,256),
             nn.LeakyReLU(),
 
-            nn.Conv3d(256,1,(1,1,1),1),
-            nn.Sigmoid(),
+            nn.Linear(256,1),
+
         )
 
 
     def forward(self,x):
 
         y = self.conv(x)
+        y = torch.squeeze(y)
+        y = self.linera(y)
 
 
-        # 注意 返回的y的shape 是5维的!!!!!
+        # 注意 返回的y的shape 是2维的!!!!!
         return y
+
+
+class ESR_Discriminator(nn.Module):
+    def __init__(self, input_shape):
+        super(ESR_Discriminator, self).__init__()
+
+        self.input_shape = input_shape
+        in_channels, in_height, in_width = self.input_shape
+        patch_h, patch_w = int(in_height / 2 ** 4), int(in_width / 2 ** 4)
+        self.output_shape = (1, patch_h, patch_w)
+
+        def discriminator_block(in_filters, out_filters, first_block=False):
+            layers = []
+            layers.append(nn.Conv2d(in_filters, out_filters, kernel_size=3, stride=1, padding=1))
+            if not first_block:
+                layers.append(nn.BatchNorm2d(out_filters))
+            layers.append(nn.LeakyReLU(0.2, inplace=True))
+            layers.append(nn.Conv2d(out_filters, out_filters, kernel_size=3, stride=2, padding=1))
+            layers.append(nn.BatchNorm2d(out_filters))
+            layers.append(nn.LeakyReLU(0.2, inplace=True))
+            return layers
+
+        layers = []
+        in_filters = in_channels
+        for i, out_filters in enumerate([64, 128, 256, 512]):
+            layers.extend(discriminator_block(in_filters, out_filters, first_block=(i == 0)))
+            in_filters = out_filters
+
+        layers.append(nn.Conv2d(out_filters, 1, kernel_size=3, stride=1, padding=1))
+
+        self.model = nn.Sequential(*layers)
+
+    def forward(self, img):
+        return self.model(img)
 
 
 class TVLoss(nn.Module):
@@ -199,6 +252,10 @@ class Spe_loss(nn.Module):
         super(Spe_loss,self).__init__()
 
     def forward(self,x,y,shape=144):
+
+        if x.dim != 4:
+            x = torch.squeeze(x)
+            y = torch.squeeze(y)
 
         loss = 0
         for i in range(shape):
